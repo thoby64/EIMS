@@ -47,7 +47,7 @@ return new class extends Migration
                 $table->id();
                 $table->foreignId('asset_id')->constrained()->cascadeOnDelete();
                 $table->string('type', 40);
-                $table->string('value', 255);
+                $table->string('value', 150);
                 $table->boolean('is_primary')->default(false);
                 $table->longText('metadata')->nullable();
                 $table->timestamps();
