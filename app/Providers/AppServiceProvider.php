@@ -68,6 +68,9 @@ class AppServiceProvider extends ServiceProvider
             Role::class, SpareRequisition::class, User::class,
         ];
         foreach ($models as $model) {
+            $model::observe(AuditableModelObserver::class);
+        }
+    }
 
     /**
      * Ensure the migrations table has proper AUTO_INCREMENT structure.
@@ -103,9 +106,6 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Exception $e) {
             // Silently fail if we can't check/fix the table
             // The actual migration error will bubble up to the user
-        }
-    }
-            $model::observe(AuditableModelObserver::class);
         }
     }
 }
