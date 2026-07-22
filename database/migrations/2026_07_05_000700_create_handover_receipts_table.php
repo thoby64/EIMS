@@ -21,7 +21,7 @@ return new class extends Migration
                     // Column already exists, continue
                 }
                 try {
-                    $table->json('accessories')->nullable();
+                    $table->longText('accessories')->nullable();
                 } catch (\Exception $e) {
                     // Column already exists, continue
                 }

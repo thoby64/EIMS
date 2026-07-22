@@ -50,7 +50,7 @@ return new class extends Migration
                 $table->string('slug', 120)->unique();
                 $table->string('data_type', 30)->index();
                 $table->string('unit', 40)->nullable();
-                $table->json('options')->nullable();
+                $table->longText('options')->nullable();
                 $table->string('validation_rules', 500)->nullable();
                 $table->text('help_text')->nullable();
                 $table->boolean('is_searchable')->default(false);
@@ -66,7 +66,7 @@ return new class extends Migration
                 $table->boolean('is_required')->default(false);
                 $table->boolean('is_unique')->default(false);
                 $table->unsignedSmallInteger('sort_order')->default(0);
-                $table->json('overrides')->nullable();
+                $table->longText('overrides')->nullable();
                 $table->primary(['asset_category_id', 'attribute_definition_id'], 'category_attribute_primary');
             });
         }

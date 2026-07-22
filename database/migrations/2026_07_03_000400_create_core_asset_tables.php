@@ -49,7 +49,7 @@ return new class extends Migration
                 $table->string('type', 40);
                 $table->string('value', 255);
                 $table->boolean('is_primary')->default(false);
-                $table->json('metadata')->nullable();
+                $table->longText('metadata')->nullable();
                 $table->timestamps();
                 $table->unique(['type', 'value']);
                 $table->index(['asset_id', 'type']);
@@ -65,7 +65,7 @@ return new class extends Migration
                 $table->decimal('number_value', 20, 4)->nullable();
                 $table->dateTime('date_value')->nullable();
                 $table->boolean('boolean_value')->nullable();
-                $table->json('json_value')->nullable();
+                $table->longText('json_value')->nullable();
                 $table->timestamps();
                 $table->unique(['asset_id', 'attribute_definition_id'], 'asset_attribute_unique');
             });
@@ -100,9 +100,9 @@ return new class extends Migration
                 $table->foreignId('actor_user_id')->nullable()->constrained('users')->nullOnDelete();
                 $table->string('event_type', 60)->index();
                 $table->string('summary', 255);
-                $table->json('before')->nullable();
-                $table->json('after')->nullable();
-                $table->json('metadata')->nullable();
+                $table->longText('before')->nullable();
+                $table->longText('after')->nullable();
+                $table->longText('metadata')->nullable();
                 $table->timestamp('occurred_at')->useCurrent()->index();
                 $table->timestamps();
             });

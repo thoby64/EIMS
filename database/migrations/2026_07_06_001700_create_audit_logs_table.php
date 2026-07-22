@@ -27,9 +27,9 @@ return new class extends Migration
                 $t->string('user_agent', 500)->nullable();
                 $t->string('outcome', 20)->default('success')->index();
                 $t->unsignedSmallInteger('http_status')->nullable();
-                $t->json('old_values')->nullable();
-                $t->json('new_values')->nullable();
-                $t->json('context')->nullable();
+                $t->longText('old_values')->nullable();
+                $t->longText('new_values')->nullable();
+                $t->longText('context')->nullable();
                 $t->timestamp('occurred_at')->index();
                 $t->timestamps();
                 $t->index(['auditable_type', 'auditable_id']);
