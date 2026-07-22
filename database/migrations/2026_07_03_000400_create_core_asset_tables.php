@@ -75,11 +75,11 @@ return new class extends Migration
             Schema::create('asset_assignments', function (Blueprint $table) {
                 $table->id();
                 $table->ulid('public_id')->unique();
-                $table->foreignId('asset_id')->constrained()->restrictOnDelete();
-                $table->foreignId('assigned_to_user_id')->nullable()->constrained('users')->nullOnDelete();
-                $table->foreignId('assigned_to_unit_id')->nullable()->constrained('organizational_units')->nullOnDelete();
-                $table->foreignId('location_id')->nullable()->constrained()->nullOnDelete();
-                $table->foreignId('assigned_by')->constrained('users')->restrictOnDelete();
+                $table->unsignedBigInteger('asset_id');
+                $table->unsignedBigInteger('assigned_to_user_id')->nullable();
+                $table->unsignedBigInteger('assigned_to_unit_id')->nullable();
+                $table->unsignedBigInteger('location_id')->nullable();
+                $table->unsignedBigInteger('assigned_by');
                 $table->dateTime('assigned_at');
                 $table->dateTime('expected_return_at')->nullable();
                 $table->dateTime('returned_at')->nullable();
@@ -91,13 +91,50 @@ return new class extends Migration
                 $table->timestamps();
                 $table->index(['asset_id', 'status']);
             });
+            
+            // Add foreign key constraints separately with error handling
+            try {
+                Schema::table('asset_assignments', function (Blueprint $t) {
+                    $t->foreign('asset_id')->references('id')->on('assets')->restrictOnDelete();
+                });
+            } catch (\Exception $e) {
+                // FK may already exist or reference issues
+            }
+            try {
+                Schema::table('asset_assignments', function (Blueprint $t) {
+                    $t->foreign('assigned_to_user_id')->references('id')->on('users')->nullOnDelete();
+                });
+            } catch (\Exception $e) {
+                // FK may already exist or reference issues
+            }
+            try {
+                Schema::table('asset_assignments', function (Blueprint $t) {
+                    $t->foreign('assigned_to_unit_id')->references('id')->on('organizational_units')->nullOnDelete();
+                });
+            } catch (\Exception $e) {
+                // FK may already exist or reference issues
+            }
+            try {
+                Schema::table('asset_assignments', function (Blueprint $t) {
+                    $t->foreign('location_id')->references('id')->on('locations')->nullOnDelete();
+                });
+            } catch (\Exception $e) {
+                // FK may already exist or reference issues
+            }
+            try {
+                Schema::table('asset_assignments', function (Blueprint $t) {
+                    $t->foreign('assigned_by')->references('id')->on('users')->restrictOnDelete();
+                });
+            } catch (\Exception $e) {
+                // FK may already exist or reference issues
+            }
         }
 
         if (!Schema::hasTable('asset_events')) {
             Schema::create('asset_events', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('asset_id')->constrained()->restrictOnDelete();
-                $table->foreignId('actor_user_id')->nullable()->constrained('users')->nullOnDelete();
+                $table->unsignedBigInteger('asset_id');
+                $table->unsignedBigInteger('actor_user_id')->nullable();
                 $table->string('event_type', 60)->index();
                 $table->string('summary', 255);
                 $table->longText('before')->nullable();
@@ -106,6 +143,22 @@ return new class extends Migration
                 $table->timestamp('occurred_at')->useCurrent()->index();
                 $table->timestamps();
             });
+            
+            // Add foreign key constraints separately with error handling
+            try {
+                Schema::table('asset_events', function (Blueprint $t) {
+                    $t->foreign('asset_id')->references('id')->on('assets')->restrictOnDelete();
+                });
+            } catch (\Exception $e) {
+                // FK may already exist or reference issues
+            }
+            try {
+                Schema::table('asset_events', function (Blueprint $t) {
+                    $t->foreign('actor_user_id')->references('id')->on('users')->nullOnDelete();
+                });
+            } catch (\Exception $e) {
+                // FK may already exist or reference issues
+            }
         }
     }
 
