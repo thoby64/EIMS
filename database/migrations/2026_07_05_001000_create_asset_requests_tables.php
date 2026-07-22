@@ -36,7 +36,7 @@ return new class extends Migration {
   if (Schema::hasTable('asset_assignments')) {
       Schema::table('asset_assignments', function (Blueprint $t) {
           try {
-              $t->foreignId('asset_request_id')->nullable()->after('active_asset_id')->unique()->constrained()->nullOnDelete();
+              $t->foreignId('asset_request_id')->nullable()->unique()->constrained()->nullOnDelete();
           } catch (\Exception $e) {
               // Column already exists, continue
           }

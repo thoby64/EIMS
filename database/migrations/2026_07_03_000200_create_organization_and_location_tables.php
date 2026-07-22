@@ -40,15 +40,15 @@ return new class extends Migration
 
         if (Schema::hasTable('users')) {
             Schema::table('users', function (Blueprint $table) {
-                // Try adding columns without introspection check (for older MySQL compatibility)
+                // Try adding columns without position specifiers for compatibility
                 try {
-                    $table->foreignId('organizational_unit_id')->nullable()->after('status')->constrained()->nullOnDelete();
+                    $table->foreignId('organizational_unit_id')->nullable()->constrained()->nullOnDelete();
                 } catch (\Exception $e) {
                     // Column already exists, continue
                 }
                 
                 try {
-                    $table->foreignId('primary_location_id')->nullable()->after('organizational_unit_id')->constrained('locations')->nullOnDelete();
+                    $table->foreignId('primary_location_id')->nullable()->constrained('locations')->nullOnDelete();
                 } catch (\Exception $e) {
                     // Column already exists, continue
                 }

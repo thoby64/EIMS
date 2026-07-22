@@ -18,7 +18,7 @@ return new class extends Migration {
   if (Schema::hasTable('users')) {
       Schema::table('users', function (Blueprint $t) {
           try {
-              $t->foreignId('department_id')->nullable()->after('organizational_unit_id')->constrained()->nullOnDelete();
+              $t->foreignId('department_id')->nullable()->constrained()->nullOnDelete();
           } catch (\Exception $e) {
               // Column already exists, continue
           }
@@ -27,7 +27,7 @@ return new class extends Migration {
   if (Schema::hasTable('assets')) {
       Schema::table('assets', function (Blueprint $t) {
           try {
-              $t->foreignId('custodian_department_id')->nullable()->after('custodian_user_id')->constrained('departments')->nullOnDelete();
+              $t->foreignId('custodian_department_id')->nullable()->constrained('departments')->nullOnDelete();
           } catch (\Exception $e) {
               // Column already exists, continue
           }
@@ -36,12 +36,12 @@ return new class extends Migration {
   if (Schema::hasTable('asset_assignments')) {
       Schema::table('asset_assignments', function (Blueprint $t) {
           try {
-              $t->string('assignment_type', 20)->default('individual')->after('asset_request_id')->index();
+              $t->string('assignment_type', 20)->default('individual')->index();
           } catch (\Exception $e) {
               // Column already exists, continue
           }
           try {
-              $t->foreignId('assigned_to_department_id')->nullable()->after('assigned_to_unit_id')->constrained('departments')->nullOnDelete();
+              $t->foreignId('assigned_to_department_id')->nullable()->constrained('departments')->nullOnDelete();
           } catch (\Exception $e) {
               // Column already exists, continue
           }
