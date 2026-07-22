@@ -15,23 +15,35 @@ return new class extends Migration {
           $t->timestamps();
       });
   }
-  if (Schema::hasTable('users') && !Schema::hasColumn('users', 'department_id')) {
+  if (Schema::hasTable('users')) {
       Schema::table('users', function (Blueprint $t) {
-          $t->foreignId('department_id')->nullable()->after('organizational_unit_id')->constrained()->nullOnDelete();
+          try {
+              $t->foreignId('department_id')->nullable()->after('organizational_unit_id')->constrained()->nullOnDelete();
+          } catch (\Exception $e) {
+              // Column already exists, continue
+          }
       });
   }
-  if (Schema::hasTable('assets') && !Schema::hasColumn('assets', 'custodian_department_id')) {
+  if (Schema::hasTable('assets')) {
       Schema::table('assets', function (Blueprint $t) {
-          $t->foreignId('custodian_department_id')->nullable()->after('custodian_user_id')->constrained('departments')->nullOnDelete();
+          try {
+              $t->foreignId('custodian_department_id')->nullable()->after('custodian_user_id')->constrained('departments')->nullOnDelete();
+          } catch (\Exception $e) {
+              // Column already exists, continue
+          }
       });
   }
   if (Schema::hasTable('asset_assignments')) {
       Schema::table('asset_assignments', function (Blueprint $t) {
-          if (!Schema::hasColumn('asset_assignments', 'assignment_type')) {
+          try {
               $t->string('assignment_type', 20)->default('individual')->after('asset_request_id')->index();
+          } catch (\Exception $e) {
+              // Column already exists, continue
           }
-          if (!Schema::hasColumn('asset_assignments', 'assigned_to_department_id')) {
+          try {
               $t->foreignId('assigned_to_department_id')->nullable()->after('assigned_to_unit_id')->constrained('departments')->nullOnDelete();
+          } catch (\Exception $e) {
+              // Column already exists, continue
           }
       });
   }

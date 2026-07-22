@@ -10,14 +10,20 @@ return new class extends Migration
     {
         if (Schema::hasTable('asset_assignments')) {
             Schema::table('asset_assignments', function (Blueprint $table) {
-                if (!Schema::hasColumn('asset_assignments', 'active_asset_id')) {
+                try {
                     $table->foreignId('active_asset_id')->nullable()->after('asset_id')->unique()->constrained('assets')->nullOnDelete();
+                } catch (\Exception $e) {
+                    // Column already exists, continue
                 }
-                if (!Schema::hasColumn('asset_assignments', 'purpose')) {
+                try {
                     $table->string('purpose', 500)->nullable()->after('condition_at_return');
+                } catch (\Exception $e) {
+                    // Column already exists, continue
                 }
-                if (!Schema::hasColumn('asset_assignments', 'accessories')) {
+                try {
                     $table->json('accessories')->nullable()->after('purpose');
+                } catch (\Exception $e) {
+                    // Column already exists, continue
                 }
             });
         }
