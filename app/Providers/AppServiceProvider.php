@@ -27,6 +27,7 @@ use App\Models\Role;
 use App\Models\SpareRequisition;
 use App\Models\User;
 use App\Observers\AuditableModelObserver;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -45,6 +46,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Set default string length to 191 for MySQL compatibility with utf8mb4
+        Schema::defaultStringLength(191);
+
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
