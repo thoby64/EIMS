@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
         pdo_pgsql \
         zip \
         pcntl \
-    && a2enmod rewrite headers expires deflate \
+    && a2enmod rewrite headers expires deflate remoteip \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -68,7 +68,7 @@ RUN apt-get update && apt-get install -y \
         pdo_pgsql \
         zip \
         pcntl \
-    && a2enmod rewrite headers expires deflate \
+    && a2enmod rewrite headers expires deflate remoteip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/html
