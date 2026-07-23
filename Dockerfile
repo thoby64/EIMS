@@ -77,11 +77,14 @@ WORKDIR /var/www/html
 RUN printf "memory_limit=256M\nupload_max_filesize=100M\npost_max_size=100M\n" \
     > /usr/local/etc/php/conf.d/uploads.ini
 
-# Copy Vite build first (from our build stage)
-COPY --from=assets /app/public/build ./public/build
-
 # Copy application
 COPY . .
+
+# Copy Composer dependencies
+COPY --from=vendor /var/www/html/vendor ./vendor
+
+# Copy Vite build
+COPY --from=assets /app/public/build ./public/build
 
 # Apache virtual host
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
@@ -98,8 +101,8 @@ RUN mkdir -p \
     storage/framework/views \
     storage/logs \
     bootstrap/cache && \
-    chown -R www-data:www-data storage bootstrap/cache public/build && \
-    chmod -R 775 storage bootstrap/cache public/build
+    chown -R www-data:www-data storage bootstrap/cache && \
+    chmod -R 775 storage bootstrap/cache
 
 EXPOSE 10000
 
