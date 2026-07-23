@@ -24,18 +24,13 @@ services:
     runtime: docker
     plan: standard
     buildCommand: |
-      ls -la vendor || echo "Vendor not found, installing..."; \
       composer install --no-dev --optimize-autoloader --no-interaction && \
       npm ci && \
       npm run build && \
-      php artisan config:cache && \
-      php artisan route:cache && \
-      php artisan view:cache && \
-      chmod -R 755 public/build
+      php artisan config:cache
     startCommand: |
       php artisan migrate --force --no-interaction || true; \
-      php artisan db:seed --class=MigrateDataFromMySQLSeeder --force --no-interaction || true; \
-      php artisan queue:work --daemon --timeout=900 > /var/log/queue-worker.log 2>&1 &
+      php artisan db:seed --class=MigrateDataFromMySQLSeeder --force --no-interaction || true
     envVars:
       - key: APP_NAME
         value: EIMS
@@ -79,13 +74,13 @@ services:
         fromService:
           type: pserv
           name: eims-postgres
-          envVarKey: POSTGRES_PASSWORD
+          property: password
       - key: SESSION_DRIVER
-        value: database
+        value: file
       - key: QUEUE_CONNECTION
-        value: database
+        value: sync
       - key: CACHE_STORE
-        value: database
+        value: file
       - key: FILESYSTEM_DISK
         value: local
     healthCheckPath: /
