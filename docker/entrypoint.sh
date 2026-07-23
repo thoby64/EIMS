@@ -3,6 +3,12 @@ set -e
 
 cd /var/www/html
 
+# Check if vendor exists, if not install
+if [ ! -d "vendor" ]; then
+    echo "📦 Vendor directory not found, installing dependencies..."
+    composer install --no-dev --optimize-autoloader --no-interaction
+fi
+
 export PORT="${PORT:-10000}"
 
 # Configure Apache to listen on Render's port

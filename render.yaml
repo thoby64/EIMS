@@ -24,7 +24,8 @@ services:
     runtime: docker
     plan: standard
     buildCommand: |
-      composer install --no-dev --optimize-autoloader && \
+      ls -la vendor || echo "Vendor not found, installing..."; \
+      composer install --no-dev --optimize-autoloader --no-interaction && \
       npm ci && \
       npm run build && \
       php artisan config:cache && \
@@ -32,10 +33,9 @@ services:
       php artisan view:cache && \
       chmod -R 755 public/build
     startCommand: |
-      php artisan migrate --force && \
-      php artisan db:seed --class=MigrateDataFromMySQLSeeder --force && \
-      php artisan queue:work --daemon --timeout=900 &
-      nginx -g 'daemon off;'
+      php artisan migrate --force --no-interaction || true; \
+      php artisan db:seed --class=MigrateDataFromMySQLSeeder --force --no-interaction || true; \
+      php artisan queue:work --daemon --timeout=900 > /var/log/queue-worker.log 2>&1 &
     envVars:
       - key: APP_NAME
         value: EIMS
