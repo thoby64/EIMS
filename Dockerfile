@@ -36,7 +36,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache modules
-RUN a2enmod rewrite
+RUN a2enmod rewrite mimetypes headers expires deflate
 
 # Configure Apache to serve from public directory
 RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
@@ -46,6 +46,16 @@ RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/s/AllowOverride None/Allow
 
 # Add comprehensive Apache configuration for Laravel and assets
 RUN cat > /etc/apache2/conf-available/laravel.conf << 'EOF'
+# Add proper MIME types for assets
+AddType text/css .css
+AddType application/javascript .js
+AddType image/svg+xml .svg
+AddEncoding gzip .gz
+AddType image/webp .webp
+AddType font/woff .woff
+AddType font/woff2 .woff2
+AddType font/ttf .ttf
+
 <Directory /var/www/html/public>
     Options -Indexes +FollowSymLinks
     AllowOverride All
@@ -85,7 +95,6 @@ Header always set X-XSS-Protection "1; mode=block"
 EOF
 
 RUN a2enconf laravel
-RUN a2enmod headers expires deflate
 
 # Set permissions for storage and bootstrap
 RUN chown -R www-data:www-data /var/www/html && \
