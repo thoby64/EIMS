@@ -42,7 +42,8 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm ci --omit=dev
+# Install ALL dependencies (including dev) for building
+RUN npm ci
 
 COPY . .
 
