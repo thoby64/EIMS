@@ -1,0 +1,202 @@
+# Production-ready Dockerfile with optimizations
+FROM php:8.4-fpm as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    libzip-dev \
+    unzip \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install \
+    pdo \
+    pdo_pgsql \
+    zip \
+    pcntl \
+    && docker-php-ext-enable \
+    pdo \
+    pdo_pgsql \
+    zip \
+    pcntl
+
+# Copy Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /build
+
+# Copy composer files
+COPY composer.json composer.lock ./
+
+# Install PHP dependencies
+RUN composer install \
+    --no-interaction \
+    --no-dev \
+    --optimize-autoloader \
+    --no-scripts
+
+# Copy application
+COPY . .
+
+# Run composer scripts
+RUN composer run-script post-autoload-dump || true
+
+# Build Node assets
+FROM node:20-alpine as frontend
+
+WORKDIR /frontend
+
+COPY package.json package-lock.json ./
+
+RUN npm ci --omit=dev
+
+COPY . .
+
+RUN npm run build
+
+# Production runtime image
+FROM php:8.4-fpm-alpine
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    libpq \
+    curl \
+    supervisor \
+    nginx
+
+# Install PHP extensions
+RUN apk add --no-cache --virtual .build-deps \
+    libpq-dev \
+    libzip-dev && \
+    docker-php-ext-install \
+    pdo \
+    pdo_pgsql \
+    zip \
+    pcntl && \
+    apk del .build-deps
+
+# Configure PHP for production
+RUN echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/memory.ini && \
+    echo "upload_max_filesize = 100M" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "post_max_size = 100M" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "max_execution_time = 120" >> /usr/local/etc/php/conf.d/execution.ini && \
+    echo "file_uploads = On" >> /usr/local/etc/php/conf.d/uploads.ini
+
+# Copy PHP-FPM configuration
+COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
+
+WORKDIR /app
+
+# Copy from builders
+COPY --from=builder --chown=www-data:www-data /build /app
+COPY --from=frontend --chown=www-data:www-data /frontend/public/build /app/public/build
+
+# Create necessary directories
+RUN mkdir -p storage/logs storage/app bootstrap/cache && \
+    chown -R www-data:www-data storage bootstrap && \
+    chmod -R 755 storage bootstrap
+
+# Create supervisor configuration
+RUN mkdir -p /etc/supervisor/conf.d
+
+COPY <<EOF /etc/supervisor/conf.d/supervisord.conf
+[supervisord]
+nodaemon=true
+logfile=/var/log/supervisor/supervisord.log
+pidfile=/var/run/supervisord.pid
+
+[program:php-fpm]
+command=/usr/local/sbin/php-fpm
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/supervisor/php-fpm.err.log
+stdout_logfile=/var/log/supervisor/php-fpm.out.log
+
+[program:queue-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /app/artisan queue:work --daemon --timeout=900 --tries=1
+autostart=true
+autorestart=true
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/queue-worker.log
+
+[program:nginx]
+command=/usr/sbin/nginx -g "daemon off;"
+autostart=true
+autorestart=true
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/nginx.log
+EOF
+
+# Copy nginx configuration
+COPY --chmod=644 <<EOF /etc/nginx/http.d/default.conf
+server {
+    listen 80;
+    server_name _;
+    root /app/public;
+
+    client_max_body_size 100M;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+        fastcgi_param HTTP_X_FORWARDED_FOR $proxy_add_x_forwarded_for;
+        fastcgi_intercept_errors off;
+    }
+
+    location ~ /\.(env|htaccess)$ {
+        deny all;
+    }
+}
+EOF
+
+# Expose port
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost/health || exit 1
+
+# Create entrypoint script
+COPY --chmod=755 <<'ENTRYPOINT' /entrypoint.sh
+#!/bin/sh
+set -e
+
+echo "Running migrations..."
+php artisan migrate --force
+
+echo "Caching configuration..."
+php artisan config:cache
+php artisan route:cache
+
+echo "Starting services..."
+/usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+ENTRYPOINT
+
+# Run entrypoint
+CMD ["/entrypoint.sh"]

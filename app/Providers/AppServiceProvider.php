@@ -27,9 +27,6 @@ use App\Models\Role;
 use App\Models\SpareRequisition;
 use App\Models\User;
 use App\Observers\AuditableModelObserver;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -47,16 +44,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Set default string length to 191 for MySQL compatibility with utf8mb4
-        Schema::defaultStringLength(191);
-
-        // Ensure migrations table is properly structured with AUTO_INCREMENT
-        $this->ensureMigrationsTable();
-
-        if ($this->app->environment('production')) {
-            URL::forceScheme('https');
-        }
-
         $models = [
             Asset::class, AssetAssignment::class, AssetAttributeValue::class,
             AssetCategory::class, AssetCustomProperty::class, AssetDisposal::class,
@@ -69,43 +56,6 @@ class AppServiceProvider extends ServiceProvider
         ];
         foreach ($models as $model) {
             $model::observe(AuditableModelObserver::class);
-        }
-    }
-
-    /**
-     * Ensure the migrations table has proper AUTO_INCREMENT structure.
-     */
-    private function ensureMigrationsTable(): void
-    {
-        try {
-            if (Schema::hasTable('migrations')) {
-                // Check if the id column has AUTO_INCREMENT
-                $columns = DB::select('SHOW CREATE TABLE migrations');
-                if (!empty($columns)) {
-                    $createTableSql = $columns[0]->{'Create Table'} ?? '';
-                    if (strpos($createTableSql, 'AUTO_INCREMENT') === false) {
-                        // Try to fix it
-                        try {
-                            DB::statement('ALTER TABLE migrations DROP PRIMARY KEY');
-                        } catch (\Exception $e) {
-                            // Primary key might not exist, continue
-                        }
-                        DB::statement('ALTER TABLE migrations MODIFY id int UNSIGNED AUTO_INCREMENT PRIMARY KEY');
-                    }
-                }
-            } else {
-                // Create the migrations table with proper structure
-                DB::statement('
-                    CREATE TABLE migrations (
-                        id int UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                        migration varchar(255) NOT NULL,
-                        batch int NOT NULL
-                    ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
-                ');
-            }
-        } catch (\Exception $e) {
-            // Silently fail if we can't check/fix the table
-            // The actual migration error will bubble up to the user
         }
     }
 }

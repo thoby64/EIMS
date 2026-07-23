@@ -1,77 +1,106 @@
-FROM composer:2 AS composer_deps
+# Multi-stage build for Laravel application
+FROM php:8.4-fpm as base
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    libzip-dev \
+    unzip \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install \
+    pdo \
+    pdo_pgsql \
+    zip \
+    pcntl \
+    && docker-php-ext-enable \
+    pdo \
+    pdo_pgsql \
+    zip \
+    pcntl
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Set working directory
+WORKDIR /app
+
+# Copy composer files
+COPY composer.json composer.lock ./
+
+# Install PHP dependencies
+RUN composer install --no-interaction --no-dev --optimize-autoloader
+
+# Install Node.js for Vite
+FROM node:20-alpine as node-builder
 
 WORKDIR /app
 
-COPY composer.json composer.lock ./
+COPY package.json package-lock.json ./
 
-RUN composer install \
-    --no-dev \
-    --prefer-dist \
-    --optimize-autoloader \
-    --no-interaction \
-    --no-progress \
-    --no-scripts
+RUN npm ci --omit=dev
 
 COPY . .
 
-RUN composer dump-autoload --optimize
-
-
-FROM node:24-bookworm-slim AS frontend_assets
-
-WORKDIR /app
-
-COPY package*.json ./
-
-RUN npm ci
-
-COPY resources resources
-COPY public public
-COPY vite.config.js ./
-
 RUN npm run build
 
+# Final production image
+FROM php:8.4-fpm
 
-FROM php:8.4-apache AS production
-
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-ENV PORT=80
-
-WORKDIR /var/www/html
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        git \
-        gettext-base \
-        unzip \
-        libicu-dev \
-        libzip-dev \
-        libpng-dev \
-        libjpeg62-turbo-dev \
-        libfreetype6-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) \
-        bcmath \
-        gd \
-        intl \
-        opcache \
-        pdo_mysql \
-        zip \
-    && a2enmod rewrite headers expires \
-    && apt-get clean \
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=composer_deps /app /var/www/html
-COPY --from=frontend_assets /app/public/build /var/www/html/public/build
+# Install PHP extensions
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    libzip-dev \
+    && docker-php-ext-install \
+    pdo \
+    pdo_pgsql \
+    zip \
+    pcntl \
+    && apt-get remove -y libpq-dev libzip-dev && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
-COPY docker/entrypoint.sh /usr/local/bin/eims-entrypoint
+# Configure PHP
+RUN echo "file_uploads = On" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/memory.ini && \
+    echo "upload_max_filesize = 100M" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "post_max_size = 100M" >> /usr/local/etc/php/conf.d/uploads.ini
 
-RUN chmod +x /usr/local/bin/eims-entrypoint \
-    && mkdir -p storage bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache
+# Set working directory
+WORKDIR /app
 
-EXPOSE 80
+# Copy composer files and dependencies from builder
+COPY --from=base /app /app
+COPY --from=base /usr/bin/composer /usr/bin/composer
 
-ENTRYPOINT ["eims-entrypoint"]
+# Copy application files
+COPY . .
 
-CMD ["apache2-foreground"]
+# Copy built assets from node builder
+COPY --from=node-builder /app/public/build ./public/build
+
+# Create necessary directories
+RUN mkdir -p storage/logs && \
+    mkdir -p bootstrap/cache && \
+    chown -R www-data:www-data storage bootstrap
+
+# Set permissions
+RUN chmod -R 755 storage bootstrap
+
+# Expose port
+EXPOSE 9000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD php -r "exit((file_exists('/app/storage/logs/laravel.log')) ? 0 : 1);"
+
+# Start PHP-FPM
+CMD ["php-fpm"]

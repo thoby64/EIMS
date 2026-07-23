@@ -1,59 +1,116 @@
 services:
+  # PostgreSQL Database Service
+  - type: pserv
+    name: eims-postgres
+    runtime: image
+    image:
+      fromRegistry:
+        url: postgres:16-alpine
+    envVars:
+      - key: POSTGRES_DB
+        value: eimsdata
+      - key: POSTGRES_USER
+        value: eims
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+    disk:
+      name: postgres-data
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 10
+
+  # Laravel Application Service
   - type: web
-    name: eims-laravel
+    name: eims-app
     runtime: docker
-    plan: free
-    region: oregon
-    dockerfilePath: ./Dockerfile
-    healthCheckPath: /health
+    plan: standard
+    buildCommand: |
+      composer install --no-dev --optimize-autoloader && \
+      npm ci --omit=dev && \
+      npm run build && \
+      php artisan config:cache && \
+      php artisan route:cache && \
+      php artisan view:cache
+    startCommand: |
+      php artisan migrate --force && \
+      php artisan db:seed --class=MigrateDataFromMySQLSeeder --force && \
+      php artisan queue:work --daemon --timeout=900 &
+      nginx -g 'daemon off;'
     envVars:
       - key: APP_NAME
-        value: EIMS — Enterprise Infrastructure Management System
+        value: EIMS
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
         value: "false"
-      - key: APP_KEY
-        sync: false
       - key: APP_URL
-        sync: false
-      - key: ASSET_URL
-        sync: false
+        fromService:
+          type: web
+          name: eims-app
+          property: host
+      - key: APP_KEY
+        generateValue: true
       - key: LOG_CHANNEL
-        value: stderr
+        value: stack
       - key: LOG_LEVEL
         value: info
       - key: DB_CONNECTION
-        value: mysql
+        value: pgsql
       - key: DB_HOST
-        sync: false
+        fromService:
+          type: pserv
+          name: eims-postgres
+          property: host
       - key: DB_PORT
-        value: "3306"
+        fromService:
+          type: pserv
+          name: eims-postgres
+          property: port
       - key: DB_DATABASE
-        sync: false
+        value: eimsdata
       - key: DB_USERNAME
-        sync: false
+        value: eims
       - key: DB_PASSWORD
-        sync: false
+        fromService:
+          type: pserv
+          name: eims-postgres
+          envVarKey: POSTGRES_PASSWORD
       - key: SESSION_DRIVER
-        value: database
-      - key: SESSION_LIFETIME
-        value: "120"
-      - key: SESSION_ENCRYPT
-        value: "false"
-      - key: SESSION_SECURE_COOKIE
-        value: "true"
-      - key: CACHE_STORE
         value: database
       - key: QUEUE_CONNECTION
         value: database
+      - key: CACHE_STORE
+        value: database
       - key: FILESYSTEM_DISK
         value: local
-      - key: MAIL_MAILER
-        value: log
-      - key: MAIL_FROM_ADDRESS
-        value: eims@localhost
-      - key: EIMS_INITIAL_ADMIN_PASSWORD
-        sync: false
-      - key: EIMS_RUN_SEEDERS
-        value: "true"
+    healthCheckPath: /
+    healthCheckStartupFailureThreshold: 10
+    headers:
+      - http:
+          paths:
+            - path: /
+              methods:
+                - GET
+                - POST
+                - PUT
+                - PATCH
+                - DELETE
+                - OPTIONS
+              middlewares:
+                - name: add-response-headers
+                  responseHeaders:
+                    - name: X-Frame-Options
+                      value: SAMEORIGIN
+                    - name: X-Content-Type-Options
+                      value: nosniff
+                    - name: X-XSS-Protection
+                      value: "1; mode=block"
+
+databases:
+  - name: eims-postgres
+    plan: standard
+    ipAllowList: []
+
+staticSites:
+  - name: eims-assets
+    staticPublishPath: ./public
+    pullRequestPreviewsEnabled: true

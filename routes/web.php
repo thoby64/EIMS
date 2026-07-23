@@ -13,7 +13,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentManagementController;
 use App\Http\Controllers\HandoverReceiptController;
-use App\Http\Controllers\HealthCheckController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\MaintenanceCaseController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -22,7 +22,9 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', HealthCheckController::class)->name('health');
+// Health check endpoints (no auth required)
+Route::get('/health', [HealthController::class, 'check'])->name('health.check');
+Route::get('/', [HealthController::class, 'check'])->name('status');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');

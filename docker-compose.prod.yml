@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: eims-postgres-prod
+    environment:
+      POSTGRES_DB: eimsdata
+      POSTGRES_USER: eims
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-eims_secure_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eims"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eims-prod-network
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: eims-app-prod
+    environment:
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=eimsdata
+      - DB_USERNAME=eims
+      - DB_PASSWORD=${DB_PASSWORD:-eims_secure_password}
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=${APP_KEY}
+      - APP_URL=${APP_URL:-http://localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/storage/logs
+    networks:
+      - eims-prod-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  eims-prod-network:
+    driver: bridge

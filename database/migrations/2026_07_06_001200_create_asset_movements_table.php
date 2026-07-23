@@ -2,45 +2,4 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-return new class extends Migration {
- public function up(): void {
-  if (!Schema::hasTable('asset_movements')) {
-      Schema::create('asset_movements', function (Blueprint $t) {
-          $t->id();
-          $t->ulid('public_id')->unique();
-          $t->string('movement_number', 40)->unique();
-          $t->string('type', 20)->index();
-          $t->foreignId('asset_id')->constrained()->restrictOnDelete();
-          $t->foreignId('from_assignment_id')->constrained('asset_assignments')->restrictOnDelete();
-          $t->foreignId('initiated_by_user_id')->constrained('users')->restrictOnDelete();
-          $t->string('target_type', 20)->nullable();
-          $t->foreignId('target_user_id')->nullable()->constrained('users')->nullOnDelete();
-          $t->foreignId('target_department_id')->nullable()->constrained('departments')->nullOnDelete();
-          $t->foreignId('target_location_id')->nullable()->constrained('locations')->nullOnDelete();
-          $t->text('reason');
-          $t->string('condition_reported', 30);
-          $t->string('status', 30)->default('pending_procurement')->index();
-          $t->foreignId('decided_by_user_id')->nullable()->constrained('users')->nullOnDelete();
-          $t->text('decision_comments')->nullable();
-          $t->timestamp('decided_at')->nullable();
-          $t->foreignId('confirmed_by_user_id')->nullable()->constrained('users')->nullOnDelete();
-          $t->string('condition_confirmed', 30)->nullable();
-          $t->text('confirmation_comments')->nullable();
-          $t->timestamp('confirmed_at')->nullable();
-          $t->timestamps();
-      });
-  }
-  if (!Schema::hasTable('asset_movement_receivers')) {
-      Schema::create('asset_movement_receivers', function (Blueprint $t) {
-          $t->id();
-          $t->foreignId('asset_movement_id')->constrained()->cascadeOnDelete();
-          $t->foreignId('user_id')->constrained()->cascadeOnDelete();
-          $t->string('status', 20)->default('pending');
-          $t->timestamp('confirmed_at')->nullable();
-          $t->timestamps();
-          $t->unique(['asset_movement_id', 'user_id']);
-      });
-  }
- }
- public function down(): void {Schema::dropIfExists('asset_movement_receivers');Schema::dropIfExists('asset_movements');}
-};
+return new class extends Migration{public function up():void{Schema::create('asset_movements',function(Blueprint $t){$t->id();$t->ulid('public_id')->unique();$t->string('movement_number',40)->unique();$t->string('type',20)->index();$t->foreignId('asset_id')->constrained()->restrictOnDelete();$t->foreignId('from_assignment_id')->constrained('asset_assignments')->restrictOnDelete();$t->foreignId('initiated_by_user_id')->constrained('users')->restrictOnDelete();$t->string('target_type',20)->nullable();$t->foreignId('target_user_id')->nullable()->constrained('users')->nullOnDelete();$t->foreignId('target_department_id')->nullable()->constrained('departments')->nullOnDelete();$t->foreignId('target_location_id')->nullable()->constrained('locations')->nullOnDelete();$t->text('reason');$t->string('condition_reported',30);$t->string('status',30)->default('pending_procurement')->index();$t->foreignId('decided_by_user_id')->nullable()->constrained('users')->nullOnDelete();$t->text('decision_comments')->nullable();$t->timestamp('decided_at')->nullable();$t->foreignId('confirmed_by_user_id')->nullable()->constrained('users')->nullOnDelete();$t->string('condition_confirmed',30)->nullable();$t->text('confirmation_comments')->nullable();$t->timestamp('confirmed_at')->nullable();$t->timestamps();});Schema::create('asset_movement_receivers',function(Blueprint $t){$t->id();$t->foreignId('asset_movement_id')->constrained()->cascadeOnDelete();$t->foreignId('user_id')->constrained()->cascadeOnDelete();$t->string('status',20)->default('pending');$t->timestamp('confirmed_at')->nullable();$t->timestamps();$t->unique(['asset_movement_id','user_id']);});}public function down():void{Schema::dropIfExists('asset_movement_receivers');Schema::dropIfExists('asset_movements');}};
