@@ -1,35 +1,61 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
 
 cd /var/www/html
 
-export PORT="${PORT:-80}"
+export PORT="${PORT:-10000}"
 
+# Configure Apache to listen on Render's port
 sed -ri "s/^Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf
-envsubst '${PORT}' < /etc/apache2/sites-available/000-default.conf > /tmp/eims-vhost.conf
-mv /tmp/eims-vhost.conf /etc/apache2/sites-available/000-default.conf
 
-mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views bootstrap/cache
+envsubst '${PORT}' \
+    < /etc/apache2/sites-available/000-default.conf \
+    > /tmp/000-default.conf
+
+mv /tmp/000-default.conf \
+    /etc/apache2/sites-available/000-default.conf
+
+# Laravel directories
+mkdir -p \
+    storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache
+
 chown -R www-data:www-data storage bootstrap/cache
 
+# APP_KEY must exist
 if [ -z "${APP_KEY:-}" ]; then
-    echo "APP_KEY is missing. Set APP_KEY in Render using: php artisan key:generate --show"
+    echo "ERROR: APP_KEY is not set."
+    echo ""
+    echo "Generate one locally:"
+    echo ""
+    echo "php artisan key:generate --show"
+    echo ""
     exit 1
 fi
 
-php artisan config:clear --no-interaction || true
-php artisan route:clear --no-interaction || true
-php artisan view:clear --no-interaction || true
+# Clear caches
+php artisan optimize:clear --no-interaction || true
 
-php artisan migrate --force --no-interaction
+# Run migrations (optional)
+if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+    php artisan migrate --force --no-interaction
+fi
 
+# Seed database (optional)
 if [ "${EIMS_RUN_SEEDERS:-false}" = "true" ]; then
     php artisan db:seed --force --no-interaction
 fi
 
-php artisan storage:link --force --no-interaction || true
-php artisan config:cache --no-interaction
-php artisan route:cache --no-interaction
-php artisan view:cache --no-interaction
+# Storage link
+php artisan storage:link || true
+
+# Cache Laravel
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
 
 exec "$@"
+

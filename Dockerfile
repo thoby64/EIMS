@@ -1,7 +1,7 @@
 # ==========================================
-# Stage 1 - PHP Dependencies
+# Stage 1 - Composer Dependencies
 # ==========================================
-FROM php:8.4-fpm AS vendor
+FROM php:8.4-apache AS vendor
 
 RUN apt-get update && apt-get install -y \
     git \
@@ -9,20 +9,21 @@ RUN apt-get update && apt-get install -y \
     curl \
     libpq-dev \
     libzip-dev \
+    gettext \
     && docker-php-ext-install \
         pdo \
         pdo_pgsql \
         zip \
         pcntl \
+    && a2enmod rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-WORKDIR /app
+WORKDIR /var/www/html
 
 COPY composer.json composer.lock ./
 
-# Install vendors without running Laravel scripts
 RUN composer install \
     --no-dev \
     --prefer-dist \
@@ -30,10 +31,8 @@ RUN composer install \
     --optimize-autoloader \
     --no-scripts
 
-# Copy the application
 COPY . .
 
-# Now artisan exists, so Composer scripts can run
 RUN composer dump-autoload --optimize
 
 # ==========================================
@@ -54,9 +53,13 @@ RUN npm run build
 # ==========================================
 # Stage 3 - Production
 # ==========================================
-FROM php:8.4-fpm
+FROM php:8.4-apache
 
 RUN apt-get update && apt-get install -y \
+    gettext \
+    git \
+    unzip \
+    curl \
     libpq5 \
     libpq-dev \
     libzip-dev \
@@ -65,30 +68,32 @@ RUN apt-get update && apt-get install -y \
         pdo_pgsql \
         zip \
         pcntl \
+    && a2enmod rewrite headers \
     && apt-get purge -y \
         libpq-dev \
         libzip-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# PHP settings
+WORKDIR /var/www/html
+
 RUN printf "memory_limit=256M\nupload_max_filesize=100M\npost_max_size=100M\n" \
     > /usr/local/etc/php/conf.d/uploads.ini
 
-WORKDIR /app
-
-# Copy application
 COPY . .
 
-# Copy Composer dependencies
-COPY --from=vendor /app/vendor ./vendor
+COPY --from=vendor /var/www/html/vendor ./vendor
 
-# Copy built Vite assets
 COPY --from=assets /app/public/build ./public/build
 
-# Create writable directories
+COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
+
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 RUN mkdir -p \
-    storage/framework/cache \
+    storage/framework/cache/data \
     storage/framework/sessions \
     storage/framework/views \
     storage/logs \
@@ -96,7 +101,9 @@ RUN mkdir -p \
     chown -R www-data:www-data storage bootstrap/cache && \
     chmod -R 775 storage bootstrap/cache
 
-EXPOSE 9000
+EXPOSE 10000
 
-CMD ["php-fpm"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+CMD ["apache2-foreground"]
 
