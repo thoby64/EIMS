@@ -21,9 +21,11 @@ mkdir -p \
     storage/framework/sessions \
     storage/framework/views \
     storage/logs \
-    bootstrap/cache
+    bootstrap/cache \
+    public/build
 
-chown -R www-data:www-data storage bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache public/build
+chmod -R 755 public/build
 
 # APP_KEY must exist
 if [ -z "${APP_KEY:-}" ]; then

@@ -7,9 +7,9 @@ RUN apt-get update && apt-get install -y \
     git \
     unzip \
     curl \
+    gettext \
     libpq-dev \
     libzip-dev \
-    gettext \
     && docker-php-ext-install \
         pdo \
         pdo_pgsql \
@@ -69,37 +69,37 @@ RUN apt-get update && apt-get install -y \
         zip \
         pcntl \
     && a2enmod rewrite headers \
-    && apt-get purge -y \
-        libpq-dev \
-        libzip-dev \
-    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/html
 
+# PHP configuration
 RUN printf "memory_limit=256M\nupload_max_filesize=100M\npost_max_size=100M\n" \
     > /usr/local/etc/php/conf.d/uploads.ini
 
-COPY . .
-
-COPY --from=vendor /var/www/html/vendor ./vendor
-
+# Copy Vite build first (from our build stage)
 COPY --from=assets /app/public/build ./public/build
 
+# Copy application
+COPY . .
+
+# Apache virtual host
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 
+# Entrypoint
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Create Laravel writable directories
 RUN mkdir -p \
     storage/framework/cache/data \
     storage/framework/sessions \
     storage/framework/views \
     storage/logs \
     bootstrap/cache && \
-    chown -R www-data:www-data storage bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache
+    chown -R www-data:www-data storage bootstrap/cache public/build && \
+    chmod -R 775 storage bootstrap/cache public/build
 
 EXPOSE 10000
 
