@@ -3,6 +3,7 @@
 use App\Http\Middleware\AuditHttpRequest;
 use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\EnsurePermission;
+use App\Http\Middleware\TrustProxies;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,7 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/health',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [AuditHttpRequest::class]);
+        // Trust proxy headers from Render reverse proxy
+        $middleware->web(prepend: [TrustProxies::class], append: [AuditHttpRequest::class]);
         $middleware->alias([
             'active' => EnsureActiveUser::class,
             'permission' => EnsurePermission::class,

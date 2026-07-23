@@ -44,6 +44,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Force HTTPS URLs when behind a reverse proxy on Render
+        if ($this->app->environment('production')) {
+            $this->app['url']->forceScheme('https');
+        }
+
         $models = [
             Asset::class, AssetAssignment::class, AssetAttributeValue::class,
             AssetCategory::class, AssetCustomProperty::class, AssetDisposal::class,
